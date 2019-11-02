@@ -121,6 +121,32 @@ int slotStrVal(PyrSlot* slot, char* str, int maxlen) {
     return errWrongType;
 }
 
+/**
+ * \brief Convert an sclang string or symbol into an std:string
+ * \param slot the sclang string or symbol
+ * \return a tuple containing an int, an error code, and an std:string.
+ *  In case of an error the string will be empty.
+ */
+std::tuple<int, std::string> slotStdStrVal(PyrSlot* slot) {
+    return IsSym(slot)
+        ? std::make_tuple(errNone, std::string(slotRawSymbol(slot)->name, (size_t)slotRawSymbol(slot)->length))
+        : (isKindOfSlot(slot, class_string)
+               ? std::make_tuple(errNone, std::string(slotRawString(slot)->s, slotRawObject(slot)->size))
+               : std::make_tuple(errWrongType, std::string()));
+}
+
+/**
+ * \brief Convert an sclang string into an std:string
+ * \param slot the sclang string
+ * \return a tuple containing an int, an error code, and an std:string.
+ *  In case of an error the string will be empty.
+ */
+std::tuple<int, std::string> slotStrStdStrVal(PyrSlot* slot) {
+    return isKindOfSlot(slot, class_string)
+        ? std::make_tuple(errNone, std::string(slotRawString(slot)->s, slotRawObject(slot)->size))
+        : std::make_tuple(errWrongType, std::string());
+}
+
 int slotPStrVal(PyrSlot* slot, unsigned char* str) {
     if (IsSym(slot)) {
         strncpy((char*)str + 1, slotRawSymbol(slot)->name, 255);
@@ -3525,7 +3551,7 @@ static int prLanguageConfig_getLibraryPaths(struct VMGlobals* g, int numArgsPush
 
     size_t numberOfPaths = dirVector.size();
     PyrObject* resultArray = newPyrArray(g->gc, numberOfPaths, 0, true);
-    SetObject(result, resultArray);
+    SetObject(result, resultArray); // this is okay here as we don't use the receiver
 
     for (size_t i = 0; i != numberOfPaths; ++i) {
         const std::string& utf8_path = SC_Codecvt::path_to_utf8_str(dirVector[i]);
@@ -3982,7 +4008,7 @@ void initPrimitives() {
     definePrimitive(base, opBitNot, "_BitNot", doSpecialUnaryArithMsg, 1, 0);
     definePrimitive(base, opAbs, "_Abs", doSpecialUnaryArithMsg, 1, 0);
     definePrimitive(base, opAsFloat, "_AsFloat", doSpecialUnaryArithMsg, 1, 0);
-    definePrimitive(base, opAsInt, "_AsInt", doSpecialUnaryArithMsg, 1, 0);
+    definePrimitive(base, opAsInteger, "_AsInteger", doSpecialUnaryArithMsg, 1, 0);
     definePrimitive(base, opCeil, "_Ceil", doSpecialUnaryArithMsg, 1, 0); // 5
     definePrimitive(base, opFloor, "_Floor", doSpecialUnaryArithMsg, 1, 0);
     definePrimitive(base, opFrac, "_Frac", doSpecialUnaryArithMsg, 1, 0);
@@ -4289,6 +4315,11 @@ void initPrimitives() {
 
     void initSchedPrimitives();
     initSchedPrimitives();
+
+#ifdef SC_ABLETON_LINK
+    void initLinkPrimitives();
+    initLinkPrimitives();
+#endif
 
 #ifdef SC_HIDAPI
     void initHIDAPIPrimitives();
